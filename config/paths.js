@@ -9,6 +9,11 @@ const url = require('url');
 const appDirectory = fs.realpathSync(process.cwd());
 const resolveApp = relativePath => path.resolve(appDirectory, relativePath);
 
+// 引入 globby 模块
+const globby = require('globby');
+// 入口文件路径
+const entriesPath = globby.sync([resolveApp('src') + '/*/index.js']);
+
 const envPublicUrl = process.env.PUBLIC_URL;
 
 function ensureSlash(inputPath, needsSlash) {
@@ -82,6 +87,7 @@ module.exports = {
   appNodeModules: resolveApp('node_modules'),
   publicUrl: getPublicUrl(resolveApp('package.json')),
   servedPath: getServedPath(resolveApp('package.json')),
+  entriesPath: entriesPath
 };
 
 

@@ -40,6 +40,25 @@ const cssModuleRegex = /\.module\.css$/;
 const sassRegex = /\.(scss|sass)$/;
 const sassModuleRegex = /\.module\.(scss|sass)$/;
 
+// 获取指定路径下的入口文件
+function getEntries(){
+  const entries = {};
+  const files = paths.entriesPath;
+  files.forEach(filePath => {
+    let tmp = filePath.split('/');
+    let name = tmp[tmp.length - 2];
+    entries[name] = [
+      // require.resolve('./polyfills'),
+      require.resolve('react-dev-utils/webpackHotDevClient'),
+      filePath,
+    ];
+  });
+  return entries;
+}
+
+// 入口文件对象
+const entries = getEntries();
+
 // This is the production and development configuration.
 // It is focused on developer experience, fast rebuilds, and a minimal bundle.
 module.exports = function(webpackEnv) {
@@ -124,25 +143,26 @@ module.exports = function(webpackEnv) {
       : isEnvDevelopment && 'cheap-module-source-map',
     // These are the "entry points" to our application.
     // This means they will be the "root" imports that are included in JS bundle.
-    entry: [
-      // Include an alternative client for WebpackDevServer. A client's job is to
-      // connect to WebpackDevServer by a socket and get notified about changes.
-      // When you save a file, the client will either apply hot updates (in case
-      // of CSS changes), or refresh the page (in case of JS changes). When you
-      // make a syntax error, this client will display a syntax error overlay.
-      // Note: instead of the default WebpackDevServer client, we use a custom one
-      // to bring better experience for Create React App users. You can replace
-      // the line below with these two lines if you prefer the stock client:
-      // require.resolve('webpack-dev-server/client') + '?/',
-      // require.resolve('webpack/hot/dev-server'),
-      isEnvDevelopment &&
-        require.resolve('react-dev-utils/webpackHotDevClient'),
-      // Finally, this is your app's code:
-      paths.appIndexJs,
-      // We include the app code last so that if there is a runtime error during
-      // initialization, it doesn't blow up the WebpackDevServer client, and
-      // changing JS code would still trigger a refresh.
-    ].filter(Boolean),
+    // entry: [
+    //   // Include an alternative client for WebpackDevServer. A client's job is to
+    //   // connect to WebpackDevServer by a socket and get notified about changes.
+    //   // When you save a file, the client will either apply hot updates (in case
+    //   // of CSS changes), or refresh the page (in case of JS changes). When you
+    //   // make a syntax error, this client will display a syntax error overlay.
+    //   // Note: instead of the default WebpackDevServer client, we use a custom one
+    //   // to bring better experience for Create React App users. You can replace
+    //   // the line below with these two lines if you prefer the stock client:
+    //   // require.resolve('webpack-dev-server/client') + '?/',
+    //   // require.resolve('webpack/hot/dev-server'),
+    //   isEnvDevelopment &&
+    //      require.resolve('react-dev-utils/webpackHotDevClient'),
+    //   // Finally, this is your app's code:
+    //   paths.appIndexJs,
+    //   // We include the app code last so that if there is a runtime error during
+    //   // initialization, it doesn't blow up the WebpackDevServer client, and
+    //   // changing JS code would still trigger a refresh.
+    // ].filter(Boolean),
+    entry: entries,
     output: {
       // The build folder.
       path: isEnvProduction ? paths.appBuild : undefined,
@@ -152,7 +172,7 @@ module.exports = function(webpackEnv) {
       // In development, it does not produce real files.
       filename: isEnvProduction
         ? 'static/js/[name].[contenthash:8].js'
-        : isEnvDevelopment && 'static/js/bundle.js',
+        : isEnvDevelopment && 'static/js/[name].bundle.js',
       // There are also additional JS chunk files if you use code splitting.
       chunkFilename: isEnvProduction
         ? 'static/js/[name].[contenthash:8].chunk.js'
@@ -469,31 +489,63 @@ module.exports = function(webpackEnv) {
     },
     plugins: [
       // Generates an `index.html` file with the <script> injected.
-      new HtmlWebpackPlugin(
-        Object.assign(
-          {},
-          {
-            inject: true,
-            template: paths.appHtml,
-          },
-          isEnvProduction
-            ? {
-                minify: {
-                  removeComments: true,
-                  collapseWhitespace: true,
-                  removeRedundantAttributes: true,
-                  useShortDoctype: true,
-                  removeEmptyAttributes: true,
-                  removeStyleLinkTypeAttributes: true,
-                  keepClosingSlash: true,
-                  minifyJS: true,
-                  minifyCSS: true,
-                  minifyURLs: true,
-                },
-              }
-            : undefined
-        )
-      ),
+      // new HtmlWebpackPlugin(
+      //   Object.assign(
+      //     {},
+      //     {
+      //       inject: true,
+      //       template: paths.appHtml,
+      //     },
+      //     isEnvProduction
+      //       ? {
+      //           minify: {
+      //             removeComments: true,
+      //             collapseWhitespace: true,
+      //             removeRedundantAttributes: true,
+      //             useShortDoctype: true,
+      //             removeEmptyAttributes: true,
+      //             removeStyleLinkTypeAttributes: true,
+      //             keepClosingSlash: true,
+      //             minifyJS: true,
+      //             minifyCSS: true,
+      //             minifyURLs: true,
+      //           },
+      //         }
+      //       : undefined
+      //   )
+      // ),
+      // 配置 HtmlWebpackPlugin 插件, 指定入口生成对应的 html 文件，有多少个页面就需要 new 多少个 HtmllWebpackPlugin
+      // webpack配置多入口后，只是编译出多个入口的JS，同时入口的HTML文件由HtmlWebpackPlugin生成，也需做配置。
+      // chunks，指明哪些 webpack入口的JS会被注入到这个HTML页面。如果不配置，则将所有entry的JS文件都注入HTML。
+      // filename，指明生成的HTML路径，如果不配置就是build/index.html，admin 配置了新的filename，避免与第一个入口的index.html相互覆盖。
+      ...Object.keys(entries).map(item => {
+        return new HtmlWebpackPlugin(
+          Object.assign(
+            {},
+            {
+              inject: true,
+              template: paths.appHtml,
+              filename: item + '.html',
+              chunks: [item],
+            },
+            isEnvProduction
+              ? {
+                  minify: {
+                    removeComments: true,
+                    collapseWhitespace: true,
+                    removeRedundantAttributes: true,
+                    useShortDoctype: true,
+                    removeEmptyAttributes: true,
+                    removeStyleLinkTypeAttributes: true,
+                    keepClosingSlash: true,
+                    minifyJS: true,
+                    minifyCSS: true,
+                    minifyURLs: true,
+                  },
+                }
+              : undefined
+          ));
+      }),
       // Inlines the webpack runtime script. This script is too small to warrant
       // a network request.
       isEnvProduction &&
